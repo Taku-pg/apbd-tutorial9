@@ -115,4 +115,47 @@ public class ProductWarehouseRepository : IProductWarehouseRepository
             return res == 1;
         }
     }
+
+    public async Task<int> AddProductToWarehouse(ProductWarehouseDTO productWarehouse,int orderId,decimal? price)
+    {
+        SqlConnection conn=new SqlConnection(_connectionString);
+        SqlCommand cmd = new SqlCommand();
+        
+        cmd.Connection = conn;
+        await conn.OpenAsync();
+        
+        var tran= await conn.BeginTransactionAsync();
+        cmd.Transaction = tran as SqlTransaction;
+
+        try
+        {
+            cmd.CommandText = "UPDATE Order SET FullfilledAt = @CurrentDate WHERE IdOrder = @IdOrder";
+            cmd.Parameters.AddWithValue("@IdOrder",orderId); 
+            cmd.Parameters.AddWithValue("@CurrentDate",DateTime.Now); 
+            await cmd.ExecuteNonQueryAsync(); 
+            
+            cmd.Parameters.Clear();
+            
+            cmd.CommandText=@"INSERT INTO Product_Warehouse (IdWarehouse,IdProduct,IdOrder,Amount,Price,CreatedAt) 
+                        VALUES (@IdWarehouse,@IdProduct,@IdOrder,@Amount,@Price,@CreatedAt);
+                        SELECT SCOPE_IDENTITY()";
+            cmd.Parameters.AddWithValue("@IdWarehouse",productWarehouse.IdWarehouse);
+            cmd.Parameters.AddWithValue("@IdProduct",productWarehouse.IdProduct);
+            cmd.Parameters.AddWithValue("@IdOrder",orderId);
+            cmd.Parameters.AddWithValue("@Amount",productWarehouse.Amount);
+            cmd.Parameters.AddWithValue("@Price",price*productWarehouse.Amount);
+            cmd.Parameters.AddWithValue("@CreatedAt",DateTime.Now);
+            await cmd.ExecuteNonQueryAsync();
+            var newId =await cmd.ExecuteScalarAsync();
+            
+            await tran.CommitAsync();
+            
+            return Convert.ToInt32(newId);
+        }
+        catch (Exception ex)
+        {
+            tran.Rollback();
+            return 0;
+        }
+    }
 }

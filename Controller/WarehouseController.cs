@@ -1,4 +1,5 @@
 using apbd_tutorial9.Model;
+using apbd_tutorial9.Service;
 using Microsoft.AspNetCore.Mvc;
 
 namespace apbd_tutorial9.Controller;
@@ -7,9 +8,21 @@ namespace apbd_tutorial9.Controller;
 [ApiController]
 public class WarehouseController : ControllerBase
 {
-    [HttpPost]
-    public async Task<IActionResult> AddProductToWarehouse(ProductWarehouseDTO product)
+    private readonly IProductWarehouseService _productWarehouseService;
+
+    public WarehouseController(IProductWarehouseService productWarehouseService)
     {
-        return Ok();
+        _productWarehouseService = productWarehouseService;
+    }
+    
+    [HttpPost]
+    public async Task<IActionResult> AddProductToWarehouse(ProductWarehouseDTO productWarehouse)
+    {
+        var res= await _productWarehouseService.AddProductToWarehouse(productWarehouse);
+        if (!res.Success)
+        {
+            return BadRequest(res.Message);
+        }
+        return Ok(res.Id);
     }
 }

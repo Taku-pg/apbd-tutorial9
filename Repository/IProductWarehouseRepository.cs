@@ -10,4 +10,5 @@ public interface IProductWarehouseRepository
     Task<bool> IsOrderExists(int orderId);
     Task<bool> UpdateOrder(int orderId);
     Task<bool> InsertProductToWarehouse(ProductWarehouseDTO productWarehouse,int orderId,decimal price);
+    Task<int> AddProductToWarehouse(ProductWarehouseDTO productWarehouse,int orderId,decimal? price);
 }
