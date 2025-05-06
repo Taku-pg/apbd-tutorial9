@@ -15,10 +15,21 @@ public class WarehouseController : ControllerBase
         _productWarehouseService = productWarehouseService;
     }
     
-    [HttpPost]
-    public async Task<IActionResult> AddProductToWarehouse(ProductWarehouseDTO productWarehouse)
+    [HttpPost("")]
+    public async Task<IActionResult> AddProductToWarehouse([FromBody]ProductWarehouseDTO productWarehouse)
     {
         var res= await _productWarehouseService.AddProductToWarehouse(productWarehouse);
+        if (!res.Success)
+        {
+            return BadRequest(res.Message);
+        }
+        return Ok(res.Id);
+    }
+
+    [HttpPost("proc")]
+    public async Task<IActionResult> AddProductToWarehouseByProc([FromBody]ProductWarehouseDTO productWarehouse)
+    {
+        var res= await _productWarehouseService.AddProductToWarehouseByProc(productWarehouse);
         if (!res.Success)
         {
             return BadRequest(res.Message);

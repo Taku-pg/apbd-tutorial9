@@ -11,6 +11,7 @@ public class ProductWarehouseService : IProductWarehouseService
     {
         _productWarehouseRepository = productWarehouseRepository;
     }
+    
     public async Task<ResultIdService> AddProductToWarehouse(ProductWarehouseDTO productWarehouse)
     {
         var productPrice =await  _productWarehouseRepository.IsProductExists(productWarehouse.IdProduct);
@@ -34,8 +35,13 @@ public class ProductWarehouseService : IProductWarehouseService
         {
             return ResultIdService.Fail("No order found");
         }
+
+        if (order.CreatedAt > productWarehouse.CreatedAt)
+        {
+            return ResultIdService.Fail("Invalid date time");
+        }
         var isOrderCompleted = await _productWarehouseRepository.IsOrderExists(order.IdOrder);
-        if (!isOrderCompleted)
+        if (isOrderCompleted)
         {
             return ResultIdService.Fail("Order not found");
         }
@@ -47,5 +53,18 @@ public class ProductWarehouseService : IProductWarehouseService
         }
 
         return ResultIdService.Ok(newId);
+    }
+    
+    
+    //by procedure
+    public async Task<ResultIdService> AddProductToWarehouseByProc(ProductWarehouseDTO productWarehouse)
+    {
+        var res=await _productWarehouseRepository.AddProductToWarehouseByProc(productWarehouse);
+        if (res.message != null)
+        {
+            return ResultIdService.Fail(res.message);
+        }
+
+        return ResultIdService.Ok(res.newId);
     }
 }

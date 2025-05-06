@@ -1,3 +1,4 @@
+using System.Data;
 using apbd_tutorial9.Model;
 using apbd_tutorial9.Service;
 using Microsoft.Data.SqlClient;
@@ -15,7 +16,7 @@ public class ProductWarehouseRepository : IProductWarehouseRepository
     
     public async Task<decimal?> IsProductExists(int productId)
     {
-        string sql = "SELECT price FROM Product WHERE ProductId = @ProductId";
+        string sql = "SELECT price FROM Product WHERE IdProduct = @ProductId";
         
         using(SqlConnection conn=new SqlConnection(_connectionString))
         using (SqlCommand cmd = new SqlCommand(sql, conn))
@@ -46,7 +47,7 @@ public class ProductWarehouseRepository : IProductWarehouseRepository
     public async Task<List<OrderDTO>> GetOrders(int productId)
     {
         var orders = new List<OrderDTO>();
-        string sql = "SELECT * FROM Order WHERE ProductId = @ProductId";
+        string sql = "SELECT * FROM [Order] WHERE IdProduct = @ProductId";
         using(SqlConnection conn=new SqlConnection(_connectionString))
         using (SqlCommand cmd = new SqlCommand(sql, conn))
         {
@@ -81,41 +82,7 @@ public class ProductWarehouseRepository : IProductWarehouseRepository
             return result != null;
         }
     }
-
-    public async Task<bool> UpdateOrder(int orderId)
-    {
-        string sql = "UPDATE Order SET FullfilledAt = @CurrentDate WHERE IdOrder = @IdOrder";
-        using(SqlConnection conn=new SqlConnection(_connectionString))
-        using (SqlCommand cmd = new SqlCommand(sql, conn))
-        {
-            cmd.Parameters.AddWithValue("@IdOrder",orderId);
-            cmd.Parameters.AddWithValue("@CurrentDate",DateTime.Now);
-            await conn.OpenAsync();
-            var res=await cmd.ExecuteNonQueryAsync();
-            return res == 1;
-        }
-    }
-
-    public async Task<bool> InsertProductToWarehouse(ProductWarehouseDTO productWarehouse,int orderId,decimal price)
-    {
-        string sql = @"INSERT INTO Product_Warehouse (IdWarehouse,IdProduct,IdOrder,Amount,Price,CreatedAt) 
-                        VALUES (@IdWarehouse,@IdProduct,@IdOrder,@Amount,@Price,@CreatedAt)";
-        
-        using(SqlConnection conn=new SqlConnection(_connectionString))
-        using (SqlCommand cmd = new SqlCommand(sql, conn))
-        {
-            cmd.Parameters.AddWithValue("@IdWarehouse",productWarehouse.IdWarehouse);
-            cmd.Parameters.AddWithValue("@IdProduct",productWarehouse.IdProduct);
-            cmd.Parameters.AddWithValue("@IdOrder",orderId);
-            cmd.Parameters.AddWithValue("@Amount",productWarehouse.Amount);
-            cmd.Parameters.AddWithValue("@Price",price*productWarehouse.Amount);
-            cmd.Parameters.AddWithValue("@CreatedAt",DateTime.Now);
-            await conn.OpenAsync();
-            var res=await cmd.ExecuteNonQueryAsync();
-            return res == 1;
-        }
-    }
-
+    
     public async Task<int> AddProductToWarehouse(ProductWarehouseDTO productWarehouse,int orderId,decimal? price)
     {
         SqlConnection conn=new SqlConnection(_connectionString);
@@ -129,13 +96,11 @@ public class ProductWarehouseRepository : IProductWarehouseRepository
 
         try
         {
-            cmd.CommandText = "UPDATE Order SET FullfilledAt = @CurrentDate WHERE IdOrder = @IdOrder";
+            cmd.CommandText = "UPDATE [Order] SET FulfilledAt = @CurrentDate WHERE IdOrder = @IdOrder";
             cmd.Parameters.AddWithValue("@IdOrder",orderId); 
             cmd.Parameters.AddWithValue("@CurrentDate",DateTime.Now); 
             await cmd.ExecuteNonQueryAsync(); 
-            
             cmd.Parameters.Clear();
-            
             cmd.CommandText=@"INSERT INTO Product_Warehouse (IdWarehouse,IdProduct,IdOrder,Amount,Price,CreatedAt) 
                         VALUES (@IdWarehouse,@IdProduct,@IdOrder,@Amount,@Price,@CreatedAt);
                         SELECT SCOPE_IDENTITY()";
@@ -145,7 +110,6 @@ public class ProductWarehouseRepository : IProductWarehouseRepository
             cmd.Parameters.AddWithValue("@Amount",productWarehouse.Amount);
             cmd.Parameters.AddWithValue("@Price",price*productWarehouse.Amount);
             cmd.Parameters.AddWithValue("@CreatedAt",DateTime.Now);
-            await cmd.ExecuteNonQueryAsync();
             var newId =await cmd.ExecuteScalarAsync();
             
             await tran.CommitAsync();
@@ -154,8 +118,32 @@ public class ProductWarehouseRepository : IProductWarehouseRepository
         }
         catch (Exception ex)
         {
+            Console.WriteLine(ex.Message);
             tran.Rollback();
             return 0;
         }
+    }
+    public async Task<(string? message,int? newId)> AddProductToWarehouseByProc(ProductWarehouseDTO productWarehouse)
+    {
+        SqlConnection conn = new SqlConnection(_connectionString);
+        SqlCommand cmd = new SqlCommand("AddProductToWarehouse", conn);
+        try
+        {
+            await conn.OpenAsync();
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.Parameters.AddWithValue("@IdWarehouse", productWarehouse.IdWarehouse);
+            cmd.Parameters.AddWithValue("@IdProduct", productWarehouse.IdProduct);
+            cmd.Parameters.AddWithValue("@Amount", productWarehouse.Amount);
+            cmd.Parameters.AddWithValue("@CreatedAt", productWarehouse.CreatedAt);
+            var res=await cmd.ExecuteScalarAsync();
+            if(res==null)
+                throw new Exception("Failed to add product");
+            return(null,Convert.ToInt32(res));
+        }
+        catch (Exception ex)
+        {
+            return (ex.Message, null);
+        }
+       
     }
 }
